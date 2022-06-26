@@ -1,49 +1,53 @@
 import Vapor
+import Fluent
 
 func routes(_ app: Application) throws {
-    app.get { req in
-        return "It works!"
-    }
 
-    app.get("hello") { req -> String in
-        return "Hello, world!"
-    }
-    
-    app.get("hello", ":name") { req -> String in
-        let name = req.parameters.get("name") ?? "no params"
-        return "hello, \(name)!!"
-    }
-    
-    // 针对个别路径制定body size限制
-    app.on(.POST, "xxx", body: .collect(maxSize: "1mb")) { req in
-        HTTPStatus.ok
-    }
-    
-    // 针对上传文件，使用流来接收body
-    app.on(.POST, "upload", body: .stream) { req -> String in
-//        在使用流的情况下，req.body.data 的值为nil，必须使用下面这种方式接收数据
-//        req.body.drain { streamResult in
-//            switch streamResult {
-//            case .buffer(let byteBuffer):
-//                print(byteBuffer)
-//            case .error(let error):
-//                print(error)
-//            case .end:
-//                print("upload end")
-//            }
-//            return .
-//        }
-        return "upload"
-    }
-    
-    // 使用组来组织一组由共同前缀构成的路由
-    app.group("user") { user in
-        user.get { req in
-            req.redirect(to: "hello", type: .normal)
+    app.group("article") { article in
+        article.get(":title") { req async throws -> AnyAsyncResponse in
+            guard let title = req.parameters.get("title") else {
+                return AnyAsyncResponse("wrong title")
+            }
+            
+            guard let article = try await Article.query(on: req.db)
+                    .filter(\.$title == title)
+                    .first()
+            else {
+                return AnyAsyncResponse("no such article")
+            }
+            
+            return AnyAsyncResponse(article)
         }
-        user.post { req in
-            "user post"
+        
+        article.post { req async throws -> String in
+            let article = try req.content.decode(Article.self)
+            try await article.create(on: req.db)
+            return "success"
         }
     }
+    
+    app.group("articles") { articles in
+        articles.get { req in
+            try await Article.query(on: req.db).all()
+        }
 
+        articles.post { req async throws -> String in
+            let articles = try req.content.decode(Array<Article>.self)
+            try await articles.create(on: req.db)
+            return "success"
+        }
+    }
 }
+
+//app.post("stars") { req -> AnyAsyncResponse in
+//    guard let galaxy = try await Galaxy.query(on: req.db).first(),
+//          let jsonData = req.body.string?.data(using: .utf8),
+//          let jsonObject = try JSONSerialization.jsonObject(with: jsonData) as? [String : String],
+//          let starName = jsonObject["name"]
+//    else {
+//        return AnyAsyncResponse("error")
+//    }
+//    let star = Star(name: starName, galaxyID: galaxy.id!)
+//    try await star.create(on: req.db)
+//    return await AnyAsyncResponse(try star.encodeResponse(for: req))
+//}
