@@ -1,0 +1,10 @@
+<h1>#(title)</h1>
+<ul>
+#for(article in articles):
+    <li>
+         <h3>#(article.title)</h3>
+         <p>#date(article.creationDate)</p>
+         <p>#(article.content)</p>
+    </li>
+#endfor
+</ul>

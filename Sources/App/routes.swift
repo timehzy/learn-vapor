@@ -26,16 +26,20 @@ func routes(_ app: Application) throws {
         }
     }
     
+    app.get { req in
+        try await ArticleListController(req: req).render()
+    }
+    
     app.group("articles") { articles in
-        articles.get { req in
-            try await Article.query(on: req.db).all()
-        }
-
         articles.post { req async throws -> String in
             let articles = try req.content.decode(Array<Article>.self)
             try await articles.create(on: req.db)
             return "success"
         }
+    }
+    
+    app.get("hello") { req in
+        try await req.view.render("hello", ["name": "Leaf"])
     }
 }
 
